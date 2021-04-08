@@ -23,9 +23,7 @@ object main extends App {
 
   spark.sparkContext.setLogLevel("ERROR")
 
-  println("*************************************************")
-  println("Start reading and parsing raw xml files ... ")
-  println("*************************************************")
+  //read the file using databricks
   val df_xml_content = spark.read.format("com.databricks.spark.xml").
     option("rowTag", "Info").load("D:\\\\Work-Folder\\\\RawFiles\\\\*.xml").withColumn("file_name",input_file_name())
 
@@ -48,23 +46,21 @@ object main extends App {
 
   val df_result = df_xml_content.map(row => {
       var Types = row.getAs("Types").toString().trim().split(" ") //contains column names from raw file
-      var Values = row.getAs("Value").toString().trim().split(",") //contains: Name, Results
-      var Name = Values(1) //Name
-      var colValues = Values(0).subSequence(1, Values(0).toString().length).toString().trim().split(" ").map(x => x.toInt)
-      //simple List are immutable and you get error in run-time if use it.
+      var Values = row.getAs("Value").toString().trim().split(" ").map(x => x.toInt) //contains column values
+      //simple List are immutable and you will get error in run-time if use it.
       var row_obj_list = scala.collection.mutable.ListBuffer.empty[Integer]
 
       //add column values:
       for (item <- selectedColumns) {
         if (Types.contains(item.toString)) {
-            row_obj_list += colValues(Types.indexOf(item))
+            row_obj_list += Values(Types.indexOf(item))
         }
       }
-      println("end of MAP Func for " + Name.toString)
+      println("end of MAP Func for " + row.getAs("_InfoId").toString().trim())
 
       //to convert ListBuffer[Unit] to spark.sql.Row:
       var row_obj = Row.fromSeq(row_obj_list.toSeq)
-      //You are not allowed to print or log anything after return value.
+      //You are not allowed to print or log anything after return value. since there is not return keword here, you may forget it :)
       //for return value of map function in scala, we are supposed to write object name
       //the retuen value type should be align with the encoder
       row_obj
@@ -77,32 +73,28 @@ object main extends App {
 /* This is a sample raw file:
 <?xml version="1.0" encoding="UTF-8"?>
 <Data>
-    <Info InfoId="Category1">
+    <Info InfoId="GenX">
       <Types>COL8020 COL8021 COL8022 COL8023 COL8024 COL8025 COL8026 COL8027 COL8028 COL8029 COL8030 COL8031 COL8032</Types>
-      <Value Name="GenX">
-        <Results>100 101 102 103 0 0 106 0 0 0 0 0 112</Results>
-      </Value>
+      <Value>100 101 102 103 0 0 106 0 0 0 0 0 112</Value>
     </Info>
-	<Info InfoId="Category2">
+	<Info InfoId="GenY">
       <Types>COL8020 COL8021 COL8022 COL8023 COL8024 COL8025 COL8032</Types>
-      <Value Name="GenY">
-        <Results>200 201 202 203 204 205 212</Results>
-      </Value>
+      <Value>200 201 202 203 204 205 212</Value>
     </Info>
 </Data>
  */
 
 /* Read Result:
-+-------------------------------------------------------------------------------------------------------+---------------------------------------------+---------+----------------------------------------------------------------------------+
-|Types                                                                                                  |Value                                        |_InfoId  |file_name                                                                   |
-+-------------------------------------------------------------------------------------------------------+---------------------------------------------+---------+----------------------------------------------------------------------------+
-|COL8020 COL8021 COL8022 COL8023 COL8024 COL8025 COL8026 COL8027 COL8028 COL8029 COL8030 COL8031 COL8032|[100 101 102 103 0 0 106 0 0 0 0 0 112, GenX]|Category1|file:/D:/Work-Folder/RawFiles/RawFile_BeginDate20210704_aslkjh4878623343.xml|
-|COL8020 COL8021 COL8022 COL8023 COL8024 COL8025 COL8032                                                |[200 201 202 203 204 205 212, GenY]          |Category2|file:/D:/Work-Folder/RawFiles/RawFile_BeginDate20210704_aslkjh4878623343.xml|
-+-------------------------------------------------------------------------------------------------------+---------------------------------------------+---------+----------------------------------------------------------------------------+
++-------------------------------------------------------------------------------------------------------+-------------------------------------+-------+----------------------------------------------------------------------------+
+|Types                                                                                                  |Value                                |_InfoId|file_name                                                                   |
++-------------------------------------------------------------------------------------------------------+-------------------------------------+-------+----------------------------------------------------------------------------+
+|COL8020 COL8021 COL8022 COL8023 COL8024 COL8025 COL8026 COL8027 COL8028 COL8029 COL8030 COL8031 COL8032|100 101 102 103 0 0 106 0 0 0 0 0 112|GenX   |file:/D:/Work-Folder/RawFiles/RawFile_BeginDate20210704_aslkjh4878623343.xml|
+|COL8020 COL8021 COL8022 COL8023 COL8024 COL8025 COL8032                                                |200 201 202 203 204 205 212          |GenY   |file:/D:/Work-Folder/RawFiles/RawFile_BeginDate20210704_aslkjh4878623343.xml|
++-------------------------------------------------------------------------------------------------------+-------------------------------------+-------+----------------------------------------------------------------------------+
 
 Parse Result:
-end of MAP Func for GenX]
-end of MAP Func for GenY]
+end of MAP Func for GenX
+end of MAP Func for GenY
 +-------+-------+-------+-------+
 |COL8020|COL8022|COL8023|COL8032|
 +-------+-------+-------+-------+
