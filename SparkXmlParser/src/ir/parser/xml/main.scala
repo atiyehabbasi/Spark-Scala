@@ -28,6 +28,31 @@ object main extends App {
     option("rowTag", "Info").load("D:\\\\Work-Folder\\\\RawFiles\\\\*.xml").withColumn("file_name",input_file_name())
 
   //*************************************************
+  //Different Type of Encoders
+  //*************************************************
+  //https://spark.apache.org/docs/latest/api/java/index.html?org/apache/spark/sql/Encoders.html
+  case class mySchema(geneAttributes: List[String] = List(), geneName : String ="")
+  //Please consider:
+  //1) the performance of Kryo is better than javaSerialization,
+  //2) if you need to have more process over your data, you need to use "product" encoder,
+  //   since the result of Kryo or JavaSerialization is in binary format.
+  implicit val myEncoder = org.apache.spark.sql.Encoders.product[mySchema]
+  var illnessInfo : sql.Dataset[mySchema] = df_xml_content.map(t=>{
+    mySchema(t.getAs("Types").toString().trim().split(" ").toList,
+              t.getAs("_InfoId").toString().trim()
+    )
+  })(myEncoder)
+  illnessInfo.show()
+
+  implicit val myEncoder_kryo = org.apache.spark.sql.Encoders.kryo[mySchema]
+  var illnessInfo_kryo : sql.Dataset[mySchema] = df_xml_content.map(t=>{
+    mySchema(t.getAs("Types").toString().trim().split(" ").toList,
+      t.getAs("_InfoId").toString().trim()
+    )
+  })(myEncoder_kryo)
+  illnessInfo_kryo.show()
+
+  //*************************************************
   //create dynamic schema
   //*************************************************
   var selectedColumns: List[String] = List("COL8020","COL8022","COL8023","COL8032")
@@ -84,7 +109,25 @@ object main extends App {
 </Data>
  */
 
-/* Read Result:
+/*
+Encoders:
++--------------------+--------+
+|      geneAttributes|geneName|
++--------------------+--------+
+|[COL8020, COL8021...|    GenX|
+|[COL8020, COL8021...|    GenY|
++--------------------+--------+
+
++--------------------+
+|               value|
++--------------------+
+|[01 00 69 72 2E 7...|
+|[01 00 69 72 2E 7...|
++--------------------+
+
+
+
+Read Result:
 +-------------------------------------------------------------------------------------------------------+-------------------------------------+-------+----------------------------------------------------------------------------+
 |Types                                                                                                  |Value                                |_InfoId|file_name                                                                   |
 +-------------------------------------------------------------------------------------------------------+-------------------------------------+-------+----------------------------------------------------------------------------+
